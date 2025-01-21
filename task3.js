@@ -69,7 +69,7 @@ function handleFirstMoveInput(input) {
 }
 
 function startGame() {
-    if (currentTurn === 'You') {
+    if (currentTurn === 'You') { 
         promptUserChoice();
     } else {
         computerChoice = chooseRandomDice();
