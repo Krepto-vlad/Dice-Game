@@ -77,7 +77,7 @@ function startGame() {
         console.log(`I make the first move and choose the [${dice[computerChoice].join(',')}] dice.`);
         promptUserChoice();
     }
-}
+} 
 
 
 function promptUserChoice() {
