@@ -1,13 +1,10 @@
 const crypto = require('crypto');
 
-
-
 if (process.argv.length < 5) {
     console.error('Error: At least 3 dice must be provided as input.');
     console.error('Example: node game.js 2,2,4,4,9,9 6,8,1,1,8,6 7,5,3,7,5,3');
     process.exit(1);
 }
-
 
 const dice = process.argv.slice(2).map(arg => arg.split(',').map(Number));
 let currentTurn = null;
@@ -17,15 +14,17 @@ let diceUsed = new Set();
 let pendingModuloInput = false;
 let moduloState = null;
 
-
+let firstMoveKey = null;
+let computerThrowKey = null;
+let userThrowKey = null;
 
 console.log(`Let's determine who makes the first move...`);
 determineFirstPlayer();
 
 function determineFirstPlayer() {
     const randomValue = Math.floor(Math.random() * 2);
-    const hmacKey = crypto.randomBytes(32).toString('hex');
-    const hmac = crypto.createHmac('sha256', hmacKey).update(randomValue.toString()).digest('hex');
+    firstMoveKey = crypto.randomBytes(32).toString('hex');
+    const hmac = crypto.createHmac('sha256', firstMoveKey).update(randomValue.toString()).digest('hex');
 
     console.log(`I selected a random value in the range 0..1 (HMAC=${hmac}).`);
     console.log('Try to guess my selection:');
@@ -35,7 +34,6 @@ function determineFirstPlayer() {
     console.log('? - help');
     process.stdin.setEncoding('utf8');
 }
-
 
 process.stdin.on('data', data => {
     const input = data.trim();
@@ -60,6 +58,9 @@ function handleFirstMoveInput(input) {
     } else if (['0', '1'].includes(input)) {
         const userGuess = Number(input);
         const firstPlayer = userGuess === randomValue ? 'You' : 'Computer';
+        console.log(`First move key revealed: ${firstMoveKey}`);
+        console.log(`I chose ${randomValue}.`);
+
         currentTurn = firstPlayer;
         console.log(`${firstPlayer} make the first move.`);
         startGame();
@@ -77,8 +78,7 @@ function startGame() {
         console.log(`I make the first move and choose the [${dice[computerChoice].join(',')}] dice.`);
         promptUserChoice();
     }
-} 
-
+}
 
 function promptUserChoice() {
     console.log('Choose your dice:');
@@ -120,9 +120,10 @@ function handleGameInput(input) {
     }
 }
 
-
 function playRound() {
-    console.log(`I selected a random value in the range 0..5 (HMAC=${generateHmac(0)}).`);
+    computerThrowKey = crypto.randomBytes(32).toString('hex');
+    const computerHmac = crypto.createHmac('sha256', computerThrowKey).update('0').digest('hex');
+    console.log(`I selected a random value in the range 0..5 (HMAC=${computerHmac}).`);
     console.log('Add your number modulo 6:');
     console.log('0 - 0');
     console.log('1 - 1');
@@ -146,9 +147,10 @@ function handleModuloInput(input) {
     } else if (/^[0-5]$/.test(input)) {
         const userModulo = parseInt(input, 10);
         const computerModulo = Math.floor(Math.random() * 6);
-
+        userThrowKey = crypto.randomBytes(32).toString('hex');
         console.log(`Your selection: ${userModulo}`);
-        console.log(`My number is ${computerModulo} (KEY=${generateHmac(computerModulo)}).`);
+        console.log(`My number is ${computerModulo} (Computer Key = ${computerThrowKey}).`);
+        console.log(`Your throw Key = ${userThrowKey}`);
 
         const moduloResult = (userModulo + computerModulo) % 6;
         console.log(`The result is ${computerModulo} + ${userModulo} = ${moduloResult} (mod 6).`);
@@ -174,14 +176,7 @@ function handleModuloInput(input) {
     } else {
         console.error('Invalid input. Please select a number between 0 and 5.');
     }
-
 }
-
-function generateHmac(value) {
-    const hmacKey = crypto.randomBytes(32).toString('hex');
-    return crypto.createHmac('sha256', hmacKey).update(value.toString()).digest('hex');
-}
-
 
 function chooseRandomDice() {
     let choice;
@@ -198,7 +193,7 @@ function probabilityCalculation() {
         probabilities[i] = [];
         for (let j = 0; j < dice.length; j++) {
             if (i === j) {
-                probabilities[i][j] = 0.3333; 
+                probabilities[i][j] = 0.3333;
             } else {
                 let wins = 0;
                 for (const sideA of dice[i]) {
@@ -209,7 +204,7 @@ function probabilityCalculation() {
                     }
                 }
                 probabilities[i][j] = (wins / (dice[i].length * dice[j].length)).toFixed(4);
-        }
+            }
         }
     }
     return probabilities;
@@ -225,4 +220,3 @@ function printProbabilities() {
     });
     console.log('-'.repeat(header.length));
 }
-
